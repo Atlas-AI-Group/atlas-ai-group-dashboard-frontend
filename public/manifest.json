@@ -1,0 +1,19 @@
+{
+  "name": "Atlas Dashboard",
+  "short_name": "Atlas Dashboard",
+  "description": "Lead-gen dashboard powered by Atlas AI Group. CUSTOMIZE: replace name/short_name/description with the client's brand before deploying.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0e1a",
+  "theme_color": "#0a0e1a",
+  "icons": [
+    {
+      "src": "/atlas-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
