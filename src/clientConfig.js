@@ -17,7 +17,7 @@ const clientConfig = {
 
   FEATURES: {
     stormReadiness: false,
-    mailboxHealth:  true,
+    mailboxHealth:  false,  // OFF for Atlas — shared Apollo account would expose BlueKey's mailboxes
     healthPanel:    true,
     editStep:       true,
     proposals: {
