@@ -22,11 +22,11 @@ const API_BASE = import.meta.env.VITE_API_BASE || "https://CLIENT-backend.onrend
 
 const CLIENT = {
   // Header — appears at top of dashboard. Renders as: prefix <accent> suffix,
-  // with <accent> in cyan. Here: "Atlas AI Group" (Group highlighted).
+  // with <accent> in cyan. Here: "Atlas AI Consulting Group" (Consulting highlighted).
   brandPrefix: "Atlas AI",
-  brandAccent: "Group",
-  brandSuffix: "",
-  tagline: "Lead-Gen Command Center",
+  brandAccent: "Consulting",
+  brandSuffix: " Group",
+  tagline: "From Insight to Impact",
 
   // Domain terminology — Atlas's data source is Apollo, entities are sequences
   entityNamePlural: "Sequences",

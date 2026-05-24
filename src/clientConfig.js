@@ -6,7 +6,9 @@
 
 const clientConfig = {
   // === Client identity (documentation; UI branding lives in App.jsx CLIENT) ===
-  CLIENT_BRAND:   "Atlas AI Group",
+  CLIENT_BRAND:   "Atlas AI Consulting Group",
+  CLIENT_TAGLINE: "From Insight to Impact",
+  CLIENT_POSITIONING: "Secure AI · Privacy-First · Your Data Stays Yours · Atlanta-based",
   OPERATOR_NAME:  "David Lewgood",
   OPERATOR_EMAIL: "davidl@bluekeycrc.com",
   CLIENT_ICP:     "Small/mid-market B2B companies running outbound sales who want their lead-gen tooling unified into one AI dashboard",
