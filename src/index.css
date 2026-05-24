@@ -9,5 +9,13 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: #0a0e1a;
+  /* Respect iPhone notch / Dynamic Island / home indicator. Without these,
+     the apple-mobile-web-app-status-bar-style="black-translucent" meta tag
+     in index.html causes the status bar (time / wifi / battery) to overlap
+     the dashboard header on iOS PWA installs. */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 #root { min-height: 100vh; }
