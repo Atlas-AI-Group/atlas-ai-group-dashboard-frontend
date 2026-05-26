@@ -245,23 +245,50 @@ function App() {
   };
 
   const activeEntities = entities.filter(e => e.active);
-  const aggregateDaily = (metric) => {
+
+  // Sum last N days of a metric across every sequence. Handles both shapes
+  // {date, value} (current backend) and raw number (defensive).
+  const aggregateRange = (metric, days) => {
     let total = 0, anyData = false;
     for (const id in trendsByEntity) {
       const series = trendsByEntity[id]?.series?.[metric];
       if (Array.isArray(series) && series.length > 0) {
-        const last = series[series.length - 1];
-        total += Number(typeof last === "object" ? last.value : last) || 0;
+        const slice = series.slice(-days);
+        total += slice.reduce((a, v) => a + (Number(typeof v === "object" ? v?.value : v) || 0), 0);
         anyData = true;
       }
     }
     return anyData ? total : null;
   };
-  const daily = {
-    delivered: aggregateDaily("delivered"),
-    opened: aggregateDaily("opened"),
-    replied: aggregateDaily("replied")
+
+  const lifetime = entities.reduce((acc, e) => ({
+    delivered: acc.delivered + (e.unique_delivered || 0),
+    opened:    acc.opened    + (e.unique_opened    || 0),
+    replied:   acc.replied   + (e.unique_replied   || 0)
+  }), { delivered: 0, opened: 0, replied: 0 });
+
+  const [kpiRange, setKpiRange] = useState(() => {
+    try { return localStorage.getItem("atlas_kpi_range") || "today"; } catch { return "today"; }
+  });
+  const switchKpiRange = (r) => {
+    setKpiRange(r);
+    try { localStorage.setItem("atlas_kpi_range", r); } catch {}
   };
+
+  // For delivered, prefer the source's rolling 24h/7d count when available;
+  // snapshot-delta math lags until the next daily snapshot runs.
+  const kpiValue = (metric) => {
+    if (kpiRange === "lifetime") return lifetime[metric];
+    if (kpiRange === "today" && metric === "delivered" && sourceHealth?.summary?.delivered_last_24h !== undefined) {
+      return sourceHealth.summary.delivered_last_24h;
+    }
+    if (kpiRange === "7d" && metric === "delivered" && sourceHealth?.summary?.delivered_last_7d !== undefined) {
+      return sourceHealth.summary.delivered_last_7d;
+    }
+    const days = kpiRange === "today" ? 1 : kpiRange === "7d" ? 7 : 30;
+    return aggregateRange(metric, days);
+  };
+  const kpiLabel = kpiRange === "today" ? "Today" : kpiRange === "7d" ? "7 Days" : kpiRange === "30d" ? "30 Days" : "Lifetime";
 
   // Persistent header banner uses overall source-health rollup
   const systemBanner = (() => {
@@ -372,10 +399,43 @@ function App() {
               </div>
             )}
 
+            {/* KPI time-range toggle */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: colors.text, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Activity · {kpiLabel}
+              </div>
+              <div style={{ display: "flex", background: colors.bgCard, border: `1px solid ${colors.border}`, borderRadius: 8, padding: 3 }}>
+                {[
+                  { val: "today",    label: "Today" },
+                  { val: "7d",       label: "7 Days" },
+                  { val: "30d",      label: "30 Days" },
+                  { val: "lifetime", label: "Lifetime" }
+                ].map(opt => (
+                  <button
+                    key={opt.val}
+                    onClick={() => switchKpiRange(opt.val)}
+                    style={{
+                      background: kpiRange === opt.val ? colors.cyan : "transparent",
+                      color: kpiRange === opt.val ? "#062423" : colors.textDim,
+                      border: 0, padding: "5px 10px", borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap"
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
-              <KpiTile label="Delivered · 24h" value={daily.delivered === null ? "—" : daily.delivered.toLocaleString()} accent={colors.text} />
-              <KpiTile label="Opens · 24h" value={daily.opened === null ? "—" : daily.opened.toLocaleString()} accent={colors.blue} />
-              <KpiTile label="Replies · 24h" value={daily.replied === null ? "—" : daily.replied.toLocaleString()} accent={colors.green} />
+              {(() => {
+                const fmt = (v) => v === null || v === undefined ? "—" : Number(v).toLocaleString();
+                const dv = kpiValue("delivered"), ov = kpiValue("opened"), rv = kpiValue("replied");
+                return <>
+                  <KpiTile label={`Delivered · ${kpiLabel}`} value={fmt(dv)} sub={kpiRange !== "lifetime" ? `${lifetime.delivered.toLocaleString()} all-time` : null} accent={colors.text} />
+                  <KpiTile label={`Opens · ${kpiLabel}`}     value={fmt(ov)} sub={kpiRange !== "lifetime" ? `${lifetime.opened.toLocaleString()} all-time` : null}    accent={colors.blue} />
+                  <KpiTile label={`Replies · ${kpiLabel}`}   value={fmt(rv)} sub={kpiRange !== "lifetime" ? `${lifetime.replied.toLocaleString()} all-time` : null}   accent={colors.green} />
+                </>;
+              })()}
               <KpiTile label="Active Sequences" value={activeEntities.length} sub={`of ${entities.length} total`} accent={colors.cyan} />
               <KpiTile
                 label="System Health"
