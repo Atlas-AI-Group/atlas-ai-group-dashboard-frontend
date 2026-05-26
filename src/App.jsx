@@ -384,9 +384,10 @@ function App() {
         </div>
         <div className="tabs" style={{ display: "flex", gap: 0, padding: "0 4px", overflowX: "auto", marginTop: 8 }}>
           {[
-            { id: "dashboard", label: "Dashboard" },
-            { id: "plan", label: "90-Day Plan" },
-            { id: "kb", label: "Knowledge Base" }
+            { id: "dashboard",  label: "Dashboard" },
+            { id: "plan",       label: "90-Day Plan" },
+            { id: "competitor", label: "Competitor Intel" },
+            { id: "kb",         label: "Knowledge Base" }
           ].map(t => (
             <button
               key={t.id}
@@ -730,6 +731,10 @@ function App() {
           </>
         )}
 
+        {activeTab === "competitor" && (
+          <CompetitorIntel apiBase={API_BASE} accent={colors.cyan} />
+        )}
+
         {activeTab === "kb" && (
           <Section title="Apollo Gotchas — Field Notes">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1030,5 +1035,227 @@ const ProposalCard = ({ proposal, appliedState, preview, onApply, onCancel }) =>
     </div>
   );
 };
+
+// ============ COMPETITOR INTEL ============
+// Self-contained component: loads /api/competitors, manages add-form state,
+// supports auto-fill from URL via /api/competitors/scrape.
+
+const CompetitorIntel = ({ apiBase, accent }) => {
+  const [items, setItems] = useState(null);
+  const [error, setError] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: "", url: "", positioning: "", claims: "", differentiator: "", notes: "" });
+  const [saving, setSaving] = useState(false);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeError, setScrapeError] = useState(null);
+
+  const load = async () => {
+    try {
+      const r = await fetch(`${apiBase}/api/competitors`);
+      if (!r.ok) {
+        const errBody = await r.json().catch(() => ({}));
+        setError(errBody.error || `HTTP ${r.status}`);
+        setItems([]);
+        return;
+      }
+      const data = await r.json();
+      setItems(data.competitors || []);
+      setError(null);
+    } catch (e) {
+      setError(e.message);
+      setItems([]);
+    }
+  };
+  useEffect(() => { load(); }, []);
+
+  const resetForm = () => setForm({ name: "", url: "", positioning: "", claims: "", differentiator: "", notes: "" });
+
+  const submit = async () => {
+    if (!form.name.trim()) { setError("Name is required"); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      const r = await fetch(`${apiBase}/api/competitors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form)
+      });
+      const data = await r.json();
+      if (!data.success) { setError(data.error || "Save failed"); return; }
+      setShowForm(false);
+      resetForm();
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (id, name) => {
+    if (!window.confirm(`Delete "${name}"? This can't be undone.`)) return;
+    try {
+      const r = await fetch(`${apiBase}/api/competitors/${id}`, { method: "DELETE" });
+      const data = await r.json();
+      if (!data.success) { setError(data.error || "Delete failed"); return; }
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const scrape = async () => {
+    if (!form.url.trim()) { setScrapeError("Enter a URL first"); return; }
+    setScraping(true);
+    setScrapeError(null);
+    try {
+      const r = await fetch(`${apiBase}/api/competitors/scrape`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: form.url.trim() })
+      });
+      const data = await r.json();
+      if (!data.success) { setScrapeError(data.error || "Scrape failed"); return; }
+      const d = data.draft || {};
+      setForm(prev => ({
+        ...prev,
+        name: prev.name || d.name || "",
+        positioning: d.positioning || prev.positioning,
+        claims: d.claims || prev.claims,
+        differentiator: d.differentiator || prev.differentiator
+      }));
+    } catch (e) {
+      setScrapeError(e.message);
+    } finally {
+      setScraping(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: colors.text, marginBottom: 3 }}>Competitor Intel</div>
+          <div style={{ fontSize: 11, color: colors.textDim, lineHeight: 1.4, maxWidth: 540 }}>
+            Add competitors here. Their positioning and your differentiator are injected into every sequence / email draft the chat generates.
+          </div>
+        </div>
+        <button
+          onClick={() => { setShowForm(!showForm); setError(null); setScrapeError(null); }}
+          style={{ background: showForm ? "transparent" : accent, color: showForm ? colors.textDim : "#062423", border: `1px solid ${showForm ? colors.border : accent}`, borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+        >
+          {showForm ? "Cancel" : "+ Add Competitor"}
+        </button>
+      </div>
+
+      {showForm && (
+        <div style={{ background: colors.bgCard, border: `1px solid ${accent}`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <CompetitorField label="Name *" value={form.name} onChange={v => setForm({ ...form, name: v })} placeholder="e.g. Accenture" />
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <div style={{ flex: 1 }}>
+              <CompetitorField label="Website URL" value={form.url} onChange={v => setForm({ ...form, url: v })} placeholder="https://..." />
+            </div>
+            <button
+              onClick={scrape}
+              disabled={scraping || !form.url.trim()}
+              style={{ background: scraping ? colors.bgElevated : "transparent", color: scraping ? colors.textMuted : accent, border: `1px solid ${scraping ? colors.border : accent}`, borderRadius: 6, padding: "6px 10px", fontSize: 11, fontWeight: 600, cursor: (scraping || !form.url.trim()) ? "wait" : "pointer", whiteSpace: "nowrap", marginBottom: 10, opacity: !form.url.trim() ? 0.5 : 1 }}
+              title="Fetch the URL and have Claude pre-fill positioning, claims, and differentiator"
+            >
+              {scraping ? "Reading..." : "Auto-fill from URL"}
+            </button>
+          </div>
+          {scrapeError && <div style={{ color: colors.red, fontSize: 11, marginBottom: 8 }}>{scrapeError}</div>}
+          <CompetitorField label="Positioning" value={form.positioning} onChange={v => setForm({ ...form, positioning: v })} multiline placeholder="1-2 sentences: how they describe themselves" />
+          <CompetitorField label="Their claims (bulleted)" value={form.claims} onChange={v => setForm({ ...form, claims: v })} multiline rows={4} placeholder="3-5 short value props they promote, one per line" />
+          <CompetitorField label="How we win" value={form.differentiator} onChange={v => setForm({ ...form, differentiator: v })} multiline placeholder="1-2 sentences: the contrast point chat will use" />
+          <CompetitorField label="Notes (internal only)" value={form.notes} onChange={v => setForm({ ...form, notes: v })} multiline rows={2} placeholder="Anything else worth remembering" />
+          {error && <div style={{ color: colors.red, fontSize: 11, marginBottom: 8 }}>{error}</div>}
+          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+            <button
+              onClick={submit}
+              disabled={saving || !form.name.trim()}
+              style={{ background: accent, color: "#062423", border: 0, borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: saving ? "wait" : "pointer", flex: 1, opacity: !form.name.trim() ? 0.5 : 1 }}
+            >
+              {saving ? "Saving..." : "Save Competitor"}
+            </button>
+            <button
+              onClick={() => { setShowForm(false); resetForm(); setError(null); }}
+              style={{ background: "transparent", color: colors.textDim, border: `1px solid ${colors.border}`, borderRadius: 6, padding: "8px 14px", fontSize: 13, cursor: "pointer" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {items === null ? (
+        <div style={{ color: colors.textMuted, fontSize: 12, padding: 16, textAlign: "center" }}>Loading...</div>
+      ) : items.length === 0 ? (
+        <div style={{ background: colors.bgCard, border: `1px dashed ${colors.borderBright}`, borderRadius: 10, padding: "24px 16px", textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: colors.text, fontWeight: 600, marginBottom: 5 }}>No competitors yet</div>
+          <div style={{ fontSize: 11, color: colors.textDim, lineHeight: 1.5, maxWidth: 460, margin: "0 auto" }}>
+            Add a few of the competitors prospects are most likely talking to. The chat will start contrasting against them automatically in every new sequence.
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {items.map(c => (
+            <div key={c.id} style={{ background: colors.bgCard, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: accent, marginBottom: 2 }}>{c.name}</div>
+                  {c.url && (
+                    <a href={c.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: colors.textDim, textDecoration: "underline", wordBreak: "break-all" }}>
+                      {c.url}
+                    </a>
+                  )}
+                </div>
+                <button
+                  onClick={() => remove(c.id, c.name)}
+                  style={{ background: "transparent", color: colors.textMuted, border: `1px solid ${colors.border}`, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+                  title="Delete competitor"
+                >
+                  Delete
+                </button>
+              </div>
+              {c.positioning && <CompetitorBlock label="POSITIONING" body={c.positioning} />}
+              {c.claims && <CompetitorBlock label="THEIR CLAIMS" body={c.claims} mono />}
+              {c.differentiator && <CompetitorBlock label="HOW WE WIN" body={c.differentiator} accent={accent} />}
+              {c.notes && <CompetitorBlock label="NOTES" body={c.notes} />}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CompetitorField = ({ label, value, onChange, multiline, rows = 2, placeholder }) => {
+  const Tag = multiline ? "textarea" : "input";
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: colors.textMuted, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>{label}</div>
+      <Tag
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={multiline ? rows : undefined}
+        style={{
+          width: "100%", background: colors.bg, border: `1px solid ${colors.border}`,
+          borderRadius: 6, color: colors.text, padding: "8px 10px", fontSize: 13,
+          outline: "none", fontFamily: "inherit", lineHeight: multiline ? 1.5 : 1.2,
+          boxSizing: "border-box", resize: multiline ? "vertical" : "none"
+        }}
+      />
+    </div>
+  );
+};
+
+const CompetitorBlock = ({ label, body, mono, accent }) => (
+  <div style={{ marginTop: 6 }}>
+    <div style={{ fontSize: 9, fontWeight: 700, color: accent || colors.textMuted, letterSpacing: 0.4, marginBottom: 2 }}>{label}</div>
+    <div style={{ fontSize: 12, color: colors.text, lineHeight: 1.5, whiteSpace: "pre-wrap", fontFamily: mono ? "ui-monospace, Menlo, monospace" : "inherit" }}>{body}</div>
+  </div>
+);
 
 export default App;
