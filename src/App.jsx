@@ -1043,6 +1043,8 @@ const ProposalCard = ({ proposal, appliedState, preview, onApply, onCancel }) =>
 const CompetitorIntel = ({ apiBase, accent }) => {
   const [items, setItems] = useState(null);
   const [error, setError] = useState(null);
+  const [setupRequired, setSetupRequired] = useState(false);
+  const [setupHint, setSetupHint] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", url: "", positioning: "", claims: "", differentiator: "", notes: "" });
   const [saving, setSaving] = useState(false);
@@ -1060,6 +1062,8 @@ const CompetitorIntel = ({ apiBase, accent }) => {
       }
       const data = await r.json();
       setItems(data.competitors || []);
+      setSetupRequired(!!data.setup_required);
+      setSetupHint(data.hint || "");
       setError(null);
     } catch (e) {
       setError(e.message);
@@ -1190,6 +1194,16 @@ const CompetitorIntel = ({ apiBase, accent }) => {
 
       {items === null ? (
         <div style={{ color: colors.textMuted, fontSize: 12, padding: 16, textAlign: "center" }}>Loading...</div>
+      ) : setupRequired ? (
+        <div style={{ background: colors.bgCard, border: `1px solid ${colors.amber}`, borderLeft: `3px solid ${colors.amber}`, borderRadius: 10, padding: "16px" }}>
+          <div style={{ fontSize: 13, color: colors.amber, fontWeight: 700, letterSpacing: 0.4, marginBottom: 6, textTransform: "uppercase" }}>One-time setup required</div>
+          <div style={{ fontSize: 12, color: colors.text, lineHeight: 1.5, marginBottom: 8 }}>
+            {setupHint}
+          </div>
+          <div style={{ fontSize: 11, color: colors.textDim, lineHeight: 1.5 }}>
+            Open your Atlas Supabase dashboard → SQL Editor → New query → paste the contents of <code style={{ color: colors.cyan }}>competitor-intel-supabase.sql</code> (in the BlueKey project root) → click Run. Then refresh this tab.
+          </div>
+        </div>
       ) : items.length === 0 ? (
         <div style={{ background: colors.bgCard, border: `1px dashed ${colors.borderBright}`, borderRadius: 10, padding: "24px 16px", textAlign: "center" }}>
           <div style={{ fontSize: 13, color: colors.text, fontWeight: 600, marginBottom: 5 }}>No competitors yet</div>
