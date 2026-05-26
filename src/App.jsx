@@ -116,7 +116,21 @@ function App() {
     ).then(results => {
       if (cancelled) return;
       const map = {};
-      for (const [id, t] of results) if (t) map[id] = t;
+      const now = Date.now();
+      const DAY = 86400000;
+      for (const [id, t] of results) {
+        if (!t) continue;
+        // Count snapshot days within the today/7d/30d windows for honest coverage labels
+        if (t.series) {
+          const ref = t.series.delivered || t.series.opened || [];
+          t.daysCovered = {
+            today: ref.filter(v => v && v.date && now - new Date(v.date).getTime() < DAY).length,
+            d7:    ref.filter(v => v && v.date && now - new Date(v.date).getTime() < 7  * DAY).length,
+            d30:   ref.filter(v => v && v.date && now - new Date(v.date).getTime() < 30 * DAY).length
+          };
+        }
+        map[id] = t;
+      }
       setTrendsByEntity(map);
     });
     return () => { cancelled = true; };
@@ -288,7 +302,28 @@ function App() {
     const days = kpiRange === "today" ? 1 : kpiRange === "7d" ? 7 : 30;
     return aggregateRange(metric, days);
   };
-  const kpiLabel = kpiRange === "today" ? "Today" : kpiRange === "7d" ? "7 Days" : kpiRange === "30d" ? "30 Days" : "Lifetime";
+
+  // Coverage: best-case captured-days across any sequence in the chosen window.
+  const coverage = (() => {
+    const want = kpiRange === "today" ? 1 : kpiRange === "7d" ? 7 : kpiRange === "30d" ? 30 : null;
+    if (want === null) return null;
+    let captured = 0;
+    for (const id in trendsByEntity) {
+      const dc = trendsByEntity[id]?.daysCovered;
+      if (!dc) continue;
+      const c = kpiRange === "today" ? dc.today : kpiRange === "7d" ? dc.d7 : dc.d30;
+      if (c > captured) captured = c;
+    }
+    return { captured, want };
+  })();
+
+  const kpiLabel = (() => {
+    if (kpiRange === "today") return "Today";
+    if (kpiRange === "lifetime") return "Lifetime";
+    if (!coverage) return kpiRange === "7d" ? "7 Days" : "30 Days";
+    if (coverage.captured >= coverage.want) return kpiRange === "7d" ? "7 Days" : "30 Days";
+    return `${coverage.captured}/${coverage.want} Days`;
+  })();
 
   // Persistent header banner uses overall source-health rollup
   const systemBanner = (() => {
