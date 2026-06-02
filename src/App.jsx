@@ -406,16 +406,69 @@ function App() {
         </div>
       </div>
 
-      {systemBanner && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "linear-gradient(90deg, #0c1d36 0%, #0a1628 100%)", borderBottom: `1px solid ${colors.border}`, fontSize: 12 }}>
-          <span style={{ background: systemBanner.color, color: "#062423", fontWeight: 700, padding: "3px 8px", borderRadius: 4, fontSize: 10, letterSpacing: 0.4, flexShrink: 0 }}>
-            {systemBanner.label}
-          </span>
-          <span style={{ color: colors.textDim, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {systemBanner.sub}
-          </span>
-        </div>
-      )}
+      {/* Persistent banner — critical alerts override the system-health
+          state so issues are visible on every tab. Tap to jump to Dashboard. */}
+      {(() => {
+        const alertCount = sourceHealth?.summary?.finding_counts?.alert || 0;
+        const warnCount  = sourceHealth?.summary?.finding_counts?.warning || 0;
+        if (alertCount > 0) {
+          return (
+            <div
+              onClick={() => switchTab("dashboard")}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 14px",
+                background: "linear-gradient(90deg, #3a1010 0%, #1f0606 100%)",
+                borderBottom: `2px solid ${colors.red}`,
+                fontSize: 12, cursor: "pointer"
+              }}
+            >
+              <span style={{ background: colors.red, color: "#fff", fontWeight: 700, padding: "3px 8px", borderRadius: 4, fontSize: 10, letterSpacing: 0.4, flexShrink: 0 }}>
+                🚨 {alertCount} CRITICAL ALERT{alertCount === 1 ? "" : "S"}
+              </span>
+              <span style={{ color: colors.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                Tap to view on Dashboard · {warnCount > 0 ? `${warnCount} warning${warnCount === 1 ? "" : "s"} also active` : "needs immediate attention"}
+              </span>
+              <span style={{ color: colors.textDim, fontSize: 11, flexShrink: 0 }}>▸</span>
+            </div>
+          );
+        }
+        if (warnCount > 0) {
+          return (
+            <div
+              onClick={() => switchTab("dashboard")}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 14px",
+                background: "linear-gradient(90deg, #3a2a08 0%, #1f1604 100%)",
+                borderBottom: `1px solid ${colors.amber}`,
+                fontSize: 12, cursor: "pointer"
+              }}
+            >
+              <span style={{ background: colors.amber, color: "#1a0f0a", fontWeight: 700, padding: "3px 8px", borderRadius: 4, fontSize: 10, letterSpacing: 0.4, flexShrink: 0 }}>
+                ⚠ {warnCount} WARNING{warnCount === 1 ? "" : "S"}
+              </span>
+              <span style={{ color: colors.textDim, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                Tap to view on Dashboard
+              </span>
+              <span style={{ color: colors.textDim, fontSize: 11, flexShrink: 0 }}>▸</span>
+            </div>
+          );
+        }
+        if (systemBanner) {
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "linear-gradient(90deg, #0c1d36 0%, #0a1628 100%)", borderBottom: `1px solid ${colors.border}`, fontSize: 12 }}>
+              <span style={{ background: systemBanner.color, color: "#062423", fontWeight: 700, padding: "3px 8px", borderRadius: 4, fontSize: 10, letterSpacing: 0.4, flexShrink: 0 }}>
+                {systemBanner.label}
+              </span>
+              <span style={{ color: colors.textDim, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {systemBanner.sub}
+              </span>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {error && (
         <div style={{ margin: "12px 14px 0", background: "rgba(239,68,68,0.1)", border: `1px solid ${colors.red}`, borderRadius: 8, padding: "10px 12px", color: colors.red, fontSize: 12 }}>
