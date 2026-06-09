@@ -293,14 +293,21 @@ function App() {
   // snapshot-delta math lags until the next daily snapshot runs.
   const kpiValue = (metric) => {
     if (kpiRange === "lifetime") return lifetime[metric];
+    let val;
     if (kpiRange === "today" && metric === "delivered" && sourceHealth?.summary?.delivered_last_24h !== undefined) {
-      return sourceHealth.summary.delivered_last_24h;
+      val = sourceHealth.summary.delivered_last_24h;
+    } else if (kpiRange === "7d" && metric === "delivered" && sourceHealth?.summary?.delivered_last_7d !== undefined) {
+      val = sourceHealth.summary.delivered_last_7d;
+    } else {
+      const days = kpiRange === "today" ? 1 : kpiRange === "7d" ? 7 : 30;
+      val = aggregateRange(metric, days);
     }
-    if (kpiRange === "7d" && metric === "delivered" && sourceHealth?.summary?.delivered_last_7d !== undefined) {
-      return sourceHealth.summary.delivered_last_7d;
-    }
-    const days = kpiRange === "today" ? 1 : kpiRange === "7d" ? 7 : 30;
-    return aggregateRange(metric, days);
+    // A time window can never exceed all-time. Clamp so the headline never shows
+    // the impossible "30 days > lifetime" (from summing clamped daily deltas on
+    // non-monotonic counters). Only clamp when we have a lifetime number.
+    const lt = lifetime[metric];
+    if (val != null && typeof lt === "number" && lt > 0) return Math.min(val, lt);
+    return val;
   };
 
   // Coverage: best-case captured-days across any sequence in the chosen window.
