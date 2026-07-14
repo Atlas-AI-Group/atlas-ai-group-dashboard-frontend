@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://atlas-ai-group-dashboard-backend.onrender.com";
 
+const authHeaders = () =>
+  import.meta.env.VITE_DASHBOARD_KEY ? { "X-Dashboard-Key": import.meta.env.VITE_DASHBOARD_KEY } : {};
+
 const colors = {
   bg: "#0a1628",
   bgElevated: "#0f1f38",
@@ -174,7 +177,7 @@ function App() {
     try {
       const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }));
       const res = await fetch(`${API_BASE}/api/chat`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ messages: apiMessages })
       });
       const data = await res.json();
@@ -201,12 +204,12 @@ function App() {
       let res;
       if (t === "create_sequence") {
         res = await fetch(`${API_BASE}/api/entities/create-from-proposal`, {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p)
+          method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() }, body: JSON.stringify(p)
         });
       } else if (t === "pause_sequence") {
-        res = await fetch(`${API_BASE}/api/entities/${p.sequence_id}/pause`, { method: "POST" });
+        res = await fetch(`${API_BASE}/api/entities/${p.sequence_id}/pause`, { method: "POST", headers: authHeaders() });
       } else if (t === "archive_sequence") {
-        res = await fetch(`${API_BASE}/api/entities/${p.sequence_id}/archive`, { method: "POST" });
+        res = await fetch(`${API_BASE}/api/entities/${p.sequence_id}/archive`, { method: "POST", headers: authHeaders() });
       } else if (t === "edit_step") {
         const body = {
           step_position: p.step_position,
@@ -215,7 +218,7 @@ function App() {
           ...(Number.isInteger(p.new_wait_days) ? { new_wait_days: p.new_wait_days } : {})
         };
         res = await fetch(`${API_BASE}/api/entities/${p.sequence_id}/edit-step`, {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+          method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() }, body: JSON.stringify(body)
         });
       } else throw new Error("Unknown proposal type: " + t);
       const data = await res.json();
@@ -244,7 +247,7 @@ function App() {
     const endpoint = ent.active ? "pause" : "activate";
     setActionState(prev => ({ ...prev, [id]: "working" }));
     try {
-      const res = await fetch(`${API_BASE}/api/entities/${id}/${endpoint}`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/api/entities/${id}/${endpoint}`, { method: "POST", headers: authHeaders() });
       const data = await res.json();
       if (data.success) {
         setActionState(prev => ({ ...prev, [id]: "done" }));
@@ -1140,7 +1143,7 @@ const CompetitorIntel = ({ apiBase, accent }) => {
     try {
       const r = await fetch(`${apiBase}/api/competitors`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify(form)
       });
       const data = await r.json();
@@ -1158,7 +1161,7 @@ const CompetitorIntel = ({ apiBase, accent }) => {
   const remove = async (id, name) => {
     if (!window.confirm(`Delete "${name}"? This can't be undone.`)) return;
     try {
-      const r = await fetch(`${apiBase}/api/competitors/${id}`, { method: "DELETE" });
+      const r = await fetch(`${apiBase}/api/competitors/${id}`, { method: "DELETE", headers: authHeaders() });
       const data = await r.json();
       if (!data.success) { setError(data.error || "Delete failed"); return; }
       await load();
@@ -1174,7 +1177,7 @@ const CompetitorIntel = ({ apiBase, accent }) => {
     try {
       const r = await fetch(`${apiBase}/api/competitors/scrape`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ url: form.url.trim() })
       });
       const data = await r.json();
