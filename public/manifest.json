@@ -1,7 +1,7 @@
 {
   "name": "Atlas Dashboard",
   "short_name": "Atlas Dashboard",
-  "description": "Lead-gen dashboard powered by Atlas AI Group. CUSTOMIZE: replace name/short_name/description with the client's brand before deploying.",
+  "description": "From Insight to Impact — Atlas AI Consulting Group",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
